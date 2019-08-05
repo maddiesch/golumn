@@ -3,7 +3,7 @@ module Golumn
     WORKER_EXIT_SIGNAL = :__golumn_worker_thread_exit__
     DEFAULT_EXCEPTION_HANDLER = ->(e) { warn e }
 
-    def initialize(batch_size: 10, exception_handler: DEFAULT_EXCEPTION_HANDLER)
+    def initialize(batch_size:, exception_handler: DEFAULT_EXCEPTION_HANDLER)
       @queue = Queue.new
       @exiting = false
       @batch_size = batch_size

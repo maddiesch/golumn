@@ -10,11 +10,11 @@ module Golumn
   module Targets
     class CloudWatch < ::Logger
       class Device
-        def initialize(group_name: nil, stream_name: nil, client: nil, opts: {})
+        def initialize(group_name: nil, stream_name: nil, client: nil, batch_size: 10, opts: {})
           @group_name = group_name || [Golumn::Metadata.application_name, Golumn::Metadata.environment].join('-')
           @stream_name = stream_name || create_stream_name
           @client = client || Aws::CloudWatchLogs::Client.new
-          @worker = Golumn::Worker.new do |messages|
+          @worker = Golumn::Worker.new(batch_size: batch_size) do |messages|
             MessageWorker.new(
               group_name: @group_name,
               stream_name: @stream_name,
