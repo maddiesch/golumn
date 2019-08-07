@@ -7,7 +7,7 @@ module Golumn
         return @application_name unless @application_name.nil?
 
         if defined?(::Rails)
-          @application_name = if ::Rails.application.class.responds_to?(:module_parent_name)
+          @application_name = if ::Rails.application.class.respond_to?(:module_parent_name)
                                 ::Rails.application.class.module_parent_name.underscore
                               else
                                 ::Rails.application.class.parent_name
