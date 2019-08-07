@@ -24,7 +24,7 @@ module Golumn
     end
 
     def state
-      @mutex.synchronize { @state.dup }
+      @mutex.synchronize { @state }
     end
 
     def perform(job)
