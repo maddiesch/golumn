@@ -1,6 +1,5 @@
-require 'logger'
-require 'pry'
 require 'aws-sdk-cloudwatchlogs'
+require 'logger'
 
 require_relative '../worker'
 require_relative '../formatter'
@@ -30,8 +29,7 @@ module Golumn
         end
 
         def close
-          @worker.exit!
-          @worker.join
+          @worker.stop_and_wait
         end
 
         private
