@@ -7,7 +7,11 @@ module Golumn
         return @application_name unless @application_name.nil?
 
         if defined?(::Rails)
-          @application_name = ::Rails.application.class.module_parent_name.underscore
+          @application_name = if ::Rails.application.class.responds_to?(:module_parent_name)
+                                ::Rails.application.class.module_parent_name.underscore
+                              else
+                                ::Rails.application.class.parent_name
+                              end
         else
           raise 'Must specify an application name `Golumn::Metadata.application_name = "my_app"`'
         end
