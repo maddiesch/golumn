@@ -13,8 +13,10 @@ module Golumn
           @group_name = group_name || [Golumn::Metadata.application_name, Golumn::Metadata.environment].join('-')
           @stream_name = stream_name || create_stream_name
           @client = client || Aws::CloudWatchLogs::Client.new
+          @sequence_token = nil
           @worker = Golumn::Worker.new(batch_size: batch_size) do |messages|
-            MessageWorker.new(
+            @sequence_token = MessageWorker.new(
+              sequence_token: @sequence_token,
               group_name: @group_name,
               stream_name: @stream_name,
               client: @client,
@@ -74,9 +76,8 @@ module Golumn
       end
 
       class MessageWorker
-        SEQUENCE_TOKEN = :__golumn_next_sequence_token
-
         def initialize(options)
+          @sequence_token = options.fetch(:sequence_token, nil)
           @client = options.delete(:client)
           @options = options
           @time = (Time.now.utc.to_f.round(3) * 1000).to_i
@@ -86,12 +87,12 @@ module Golumn
           response = @client.put_log_events(
             log_group_name: @options.fetch(:group_name),
             log_stream_name: @options.fetch(:stream_name),
-            sequence_token: Thread.current[SEQUENCE_TOKEN],
+            sequence_token: @sequence_token,
             log_events: @options.fetch(:messages).map do |message|
               { timestamp: @time, message: message }
             end
           )
-          Thread.current[SEQUENCE_TOKEN] = response.next_sequence_token
+          response.next_sequence_token
         end
       end
 

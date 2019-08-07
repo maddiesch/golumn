@@ -4,23 +4,68 @@ module Golumn
     DEFAULT_EXCEPTION_HANDLER = ->(e) { warn e }
 
     STATE = {
-      running: 0,
-      stopping: 1,
-      stopped: 2
+      ready: 0,
+      running: 1,
+      stopping: 2,
+      stopped: 3
     }.freeze
 
-    def initialize(batch_size:, exception_handler: DEFAULT_EXCEPTION_HANDLER)
+    def initialize(batch_size:, exception_handler: DEFAULT_EXCEPTION_HANDLER, &handler)
       @mutex = Mutex.new
       @queue = Queue.new
       @batch_size = batch_size
       @exception_handler = exception_handler
-      @state = STATE[:open]
+      @state = STATE[:ready]
+      @handler = handler
 
-      @thread = Thread.new do
+      at_exit do
+        stop_and_wait
+      end
+    end
+
+    def state
+      @mutex.synchronize { @state.dup }
+    end
+
+    def perform(job)
+      return unless state <= STATE[:running]
+
+      create_new_thread if needs_new_thread?
+
+      Array(job).each { |j| @queue.push(j) }
+    end
+
+    def stop_and_wait
+      @mutex.synchronize { @state = STATE[:stopping] }
+      @queue.push(WORKER_EXIT_SIGNAL)
+      @mutex.synchronize do
+        @thread.join
+        @state = STATE[:stopped]
+      end
+    end
+
+    private
+
+    def needs_new_thread?
+      @mutex.synchronize do
+        if @thread.nil?
+          true
+        elsif @thread.status == false || @thread.status.nil?
+          true
+        else
+          false
+        end
+      end
+    end
+
+    def create_new_thread
+      @mutex.synchronize { @state = STATE[:running] if @state < STATE[:running] }
+
+      thread = Thread.new do
         worker_exit_received = false
 
         loop do
-          break if state == STATE[:stopped]
+          break if @state == STATE[:stopped]
           break if worker_exit_received
 
           jobs = []
@@ -36,33 +81,14 @@ module Golumn
           end
 
           begin
-            yield(jobs) if jobs.any?
+            @handler.call(jobs) if jobs.any?
           rescue StandardError => e
             @exception_handler.call(e)
           end
         end
       end
 
-      at_exit do
-        stop_and_wait
-      end
-    end
-
-    def state
-      @mutex.synchronize { @state.dup }
-    end
-
-    def perform(job)
-      return unless state == STATE[:open]
-
-      Array(job).each { |j| @queue.push(j) }
-    end
-
-    def stop_and_wait
-      @mutex.synchronize { @state = STATE[:stopping] }
-      @queue.push(WORKER_EXIT_SIGNAL)
-      @thread.join
-      @mutex.synchronize { @state = STATE[:stopped] }
+      @mutex.synchronize { @thread = thread }
     end
   end
 end
