@@ -39,16 +39,4 @@ RSpec.describe 'CloudWatch' do
     expect(requests[1].first).to eq :put_log_events
     expect(requests[2].last.dig(:log_events, 0, :message)).to match(/\[WARN\] testing\n\z/)
   end
-
-  it 'freezes?' do
-    logger = Golumn::Targets::CloudWatch.new(client: client, batch_size: 2)
-
-    500.times { |i| logger.debug "testing #{i}" }
-
-    logger.close
-
-    requests = client.api_requests.map { |r| [r[:operation_name], r[:params]] }
-
-    binding.pry
-  end
 end
